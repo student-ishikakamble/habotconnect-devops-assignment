@@ -19,38 +19,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ===================================================
-      # SOURCE
-      # ===================================================
-
       - name: Checkout source code
         uses: actions/checkout@v4
-
-      # ===================================================
-      # PYTHON QUALITY GATES
-      # ===================================================
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install validation tools
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements.txt
           pip install ruff
 
       - name: Python lint check
         run: |
-          ruff check django
+          python -m ruff check onboarding
 
       - name: Python formatting check
         run: |
-          ruff format --check django
+          python -m ruff format --check onboarding
 
-      # ===================================================
-      # TERRAFORM QUALITY GATES
-      # ===================================================
+      - name: Django system check
+        run: |
+          python manage.py check
+
+      - name: Django tests
+        run: |
+          python manage.py test
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -68,18 +65,10 @@ jobs:
           terraform init -backend=false
           terraform validate
 
-      # ===================================================
-      # HARD-CODED SECRET GATE
-      # ===================================================
-
       - name: Scan repository for hardcoded secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ===================================================
-      # TERRAFORM SECURITY GATE
-      # ===================================================
 
       - name: IaC security scan
         uses: bridgecrewio/checkov-action@v12
@@ -89,10 +78,6 @@ jobs:
           soft_fail: false
           skip_check: CKV_GCP_62,CKV_GCP_81
 
-      # ===================================================
-      # FAIL-CLOSED CONFIRMATION
-      # ===================================================
-
       - name: Security gate passed
         run: |
           echo "=============================================="
@@ -100,6 +85,8 @@ jobs:
           echo "=============================================="
           echo "Python linting: PASSED"
           echo "Python formatting: PASSED"
+          echo "Django system check: PASSED"
+          echo "Django tests: PASSED"
           echo "Terraform formatting: PASSED"
           echo "Terraform validation: PASSED"
           echo "Hard-coded secret scan: PASSED"
