@@ -1,0 +1,66 @@
+name: HabotConnect CI - Poka-Yoke Security Gate
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  security-and-quality-gate:
+    name: Fail-Closed Security Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install validation tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Python lint check
+        run: |
+          ruff check django
+
+      - name: Python formatting check
+        run: |
+          ruff format --check django
+
+      - name: Terraform format check
+        working-directory: terraform
+        run: |
+          terraform fmt -check -recursive
+
+      - name: Terraform validation
+        working-directory: terraform
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Scan repository for hardcoded secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: IaC security scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          soft_fail: false
+
+      - name: Security gate passed
+        run: |
+          echo "All Poka-Yoke security and quality gates passed."
+          echo "Build is permitted to continue."
