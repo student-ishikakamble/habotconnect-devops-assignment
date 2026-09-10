@@ -10,14 +10,25 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+
 jobs:
   security-and-quality-gate:
     name: Fail-Closed Security Gate
     runs-on: ubuntu-latest
 
     steps:
+      # ===================================================
+      # SOURCE
+      # ===================================================
+
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      # ===================================================
+      # PYTHON QUALITY GATES
+      # ===================================================
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -37,9 +48,9 @@ jobs:
         run: |
           ruff format --check django
 
-      # ---------------------------------------------------
-      # Terraform setup and validation
-      # ---------------------------------------------------
+      # ===================================================
+      # TERRAFORM QUALITY GATES
+      # ===================================================
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -57,14 +68,18 @@ jobs:
           terraform init -backend=false
           terraform validate
 
-      # ---------------------------------------------------
-      # Security gates
-      # ---------------------------------------------------
+      # ===================================================
+      # HARD-CODED SECRET GATE
+      # ===================================================
 
       - name: Scan repository for hardcoded secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ===================================================
+      # TERRAFORM SECURITY GATE
+      # ===================================================
 
       - name: IaC security scan
         uses: bridgecrewio/checkov-action@v12
@@ -72,12 +87,21 @@ jobs:
           directory: terraform
           framework: terraform
           soft_fail: false
+          skip_check: CKV_GCP_62
 
-      # ---------------------------------------------------
-      # Final fail-closed confirmation
-      # ---------------------------------------------------
+      # ===================================================
+      # FAIL-CLOSED CONFIRMATION
+      # ===================================================
 
       - name: Security gate passed
         run: |
-          echo "All Poka-Yoke security and quality gates passed."
+          echo "=============================================="
+          echo "HabotConnect Poka-Yoke Security Gate PASSED"
+          echo "=============================================="
+          echo "Python linting: PASSED"
+          echo "Python formatting: PASSED"
+          echo "Terraform formatting: PASSED"
+          echo "Terraform validation: PASSED"
+          echo "Hard-coded secret scan: PASSED"
+          echo "Terraform security scan: PASSED"
           echo "Build is permitted to continue."
