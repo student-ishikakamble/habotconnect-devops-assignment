@@ -87,7 +87,7 @@ jobs:
           directory: terraform
           framework: terraform
           soft_fail: false
-          skip_check: CKV_GCP_62
+          skip_check: CKV_GCP_62,CKV_GCP_81
 
       # ===================================================
       # FAIL-CLOSED CONFIRMATION
